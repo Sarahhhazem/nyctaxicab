@@ -1,0 +1,169 @@
+---
+title: "LR on tips,distance and weathers for 2018.01"
+output: html_notebook
+---
+
+Loading Taxi Trips Data
+Data Link: https://www1.nyc.gov/site/tlc/about/tlc-trip-record-data.page
+
+```{r}
+setwd("C:/Users/Lei Li/Desktop/2020 Spring/IEOR 4650/Project/NYC Taxi")
+
+jan = read.csv('file:///C:/Users/Lei Li/Desktop/2020 Spring/IEOR 4650/Project/NYC Taxi/yellow_tripdata_2018-01.csv')
+
+# may = read.csv('file:///C:/Users/Lei Li/Desktop/2020 Spring/IEOR 4650/Project/NYC Taxi/yellow_tripdata_2018-05.csv')
+# 
+# oct = read.csv('file:///C:/Users/Lei Li/Desktop/2020 Spring/IEOR 4650/Project/NYC Taxi/yellow_tripdata_2018-10.csv')
+
+```
+
+Loading Weather and Crashes Data
+```{r}
+weather = read.csv('weather.csv')
+crash = read.csv('crash.csv')
+```
+
+
+Initial Data Cleaning 
+```{r}
+jan = na.omit(jan)
+#may = na.omit(may)
+#oct = na.omit(oct)
+```
+```{r}
+library(lubridate)
+jan[,2] = ymd_hms(as.character(jan[,2]),tz=Sys.timezone())
+#may[,2] = ymd_hms(as.character(may[,2]),tz=Sys.timezone())
+#oct[,2] = ymd_hms(as.character(oct[,2]),tz=Sys.timezone())
+jan[,3] = ymd_hms(as.character(jan[,3]),tz=Sys.timezone())
+#may[,3] = ymd_hms(as.character(may[,3]),tz=Sys.timezone())
+#oct[,3] = ymd_hms(as.character(oct[,3]),tz=Sys.timezone())
+```
+
+
+
+Jan Data Process:
+```{r}
+jan_tip_avg = c()
+jan_fare_avg = c()
+jan_dis_avg = c()
+
+for(i in 1:31){
+  jan_tip_avg[i] = mean(jan[day(jan[,2])==i,]$tip_amount)
+  jan_fare_avg[i] = mean(jan[day(jan[,2])==i,]$total_amount)
+  jan_dis_avg[i] = mean(jan[day(jan[,2])==i,]$trip_distance)
+}
+```
+
+
+```{r}
+weather$DATE = ymd(as.character(weather$DATE),tz=Sys.timezone())
+jan_weather = weather[month(weather$DATE)==1,]
+```
+
+
+```{r}
+
+jan$rain_snow = NA
+jan$AWND = NA
+jan$TAVG = NA
+
+for(i in 1:31){
+  mask = day(jan_weather[,2])==i
+  temp_weather = jan_weather[mask,]
+  rain_snow_temp = as.numeric((temp_weather$SNOW == 0)&(temp_weather$PRCP==0))
+  awnd_temp = as.numeric(temp_weather$AWND)
+  tavg_temp = as.numeric(temp_weather$TAVG)
+  
+  mask = day(jan[,2])==i
+  jan[mask,]$rain_snow = rain_snow_temp
+  jan[mask,]$AWND = awnd_temp
+  jan[mask,]$TAVG = tavg_temp
+}
+
+
+```
+
+Linear Regression Model on Tips and if Rain or snow that day
+
+```{r}
+fit = lm(tip_amount~rain_snow,data=jan)
+summary(fit)
+
+```
+
+Average Wind speed  influence on Tips:
+
+```{r}
+library("robustHD")
+fit2 = lm(tip_amount~AWND,data=jan)
+summary(fit2)
+```
+
+```{r}
+fit3 = lm(tip_amount~TAVG,data=jan)
+summary(fit3)
+```
+
+Trip Distance Influencer:
+```{r}
+fit4 = lm(trip_distance~rain_snow,data = jan)
+summary(fit4)
+```
+```{r}
+fit5 = lm(trip_distance~AWND,data = jan)
+summary(fit5)
+```
+
+```{r}
+fit6 = lm(trip_distance~TAVG,data = jan)
+summary(fit6)
+```
+
+
+
+Passenger numbers' infludences on tip
+```{r}
+
+fit7 = lm(tip_amount ~ passenger_count,data=jan)
+summary(fit7)
+
+```
+
+
+Trip's distance and passenger count
+
+```{r}
+fit8 = lm(trip_distance ~ passenger_count,data=jan)
+summary(fit8)
+```
+
+
+Total fare amount and passenger count:
+
+```{r}
+fit9 = lm(total_amount ~ passenger_count, data=jan)
+summary(fit9)
+```
+
+
+Combining all possible factors in one LR model
+
+standardized tip amount model:
+
+```{r}
+total_fit1 = lm(standardize(tip_amount)~ rain_snow + standardize(TAVG)+ standardize(AWND) + standardize(passenger_count) + standardize(total_amount),data = jan)
+summary(total_fit1)
+```
+
+Possible Explanation:
+
+1.  Being wet outside will lower the tips and generosity of taxi riders;
+2.  Higher temperature will increase the tip amount, but windseapd won't;
+3.  More passenger in the taxi does not bring up the total tip amount;
+4.  The tip amount is highly possitively influenced by the total fare amount.
+
+
+
+
+
