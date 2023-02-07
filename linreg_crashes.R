@@ -1,0 +1,5 @@
+wc <- read.csv("weather_and_crash.csv")
+attach(wc)
+model <- lm(COUNT ~ Time.of.Day + BOROUGH + AWND + PRCP + SNOW + TAVG + Day.of.Week)
+summary(model)
+detach(wc)
